@@ -2,7 +2,10 @@ from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, 
 from datetime import datetime
 
 import time
+import csv
 from functools import wraps
+from collections import defaultdict
+
 def medir_tempo(func):
     """Decorator que mede o tempo de execução de uma função."""
     @wraps(func)
@@ -32,7 +35,6 @@ usuarios = Table(
 
 metadata.create_all(engine)
 
-@medir_tempo
 def LGPD(row):
     r = row._mapping
     id= r['id']
@@ -58,12 +60,33 @@ def LGPD(row):
 
     return (id, nome, cpf, email, telefone, data_nascimento, created_on, updated_on)
 
-users = []
+@medir_tempo
+def gerar_por_ano(users):
+    por_ano = defaultdict(list)
+    for u in users:
+        ano = u[5].year #indice 5 (data_nascimento)
+        por_ano[ano].append(u)
+
+    for ano, registros in por_ano.items():
+        nome_arquivo = f'{ano}.csv'
+        with open(nome_arquivo, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'nome', 'cpf', 'email', 'telefone', 'data_nascimento', 'created_on', 'updated_on'])
+            writer.writerows(registros)
+        print(f"'{nome_arquivo}' gerado com {len(registros)} usuários.")
+all_users = []
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT * FROM usuarios;"))
+    for row in result:
+        all_users.append(LGPD(row))
+gerar_por_ano(all_users)
+
+
+users=[]
 with engine.connect() as conn:
     result = conn.execute(text("SELECT * FROM usuarios LIMIT 5;"))
     for row in result:
         row = LGPD(row)
         users.append(row)
-
 for user in users:
     print(user)
