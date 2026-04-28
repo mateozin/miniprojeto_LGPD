@@ -34,31 +34,38 @@ usuarios = Table(
 )
 
 metadata.create_all(engine)
-
+def anon_nome(row):
+    r = row._mapping
+    nome=r['nome']
+    nomeS=nome.split()
+    nomeS[0]=nomeS[0][0] + '*' * (len(nomeS[0]) - 1)
+    return nome
+def anon_cpf(row):
+    r = row._mapping
+    cpf=r['cpf']
+    cpf = cpf[:3] + '.***.***-**'
+    return cpf
+def anon_email(row):
+    r = row._mapping
+    email=r['email']
+    local,dominio=email.split('@', 1)
+    email = local[0] + '*' * (len(local)-1) + '@' + dominio
+    return email
+def anon_telefone(row):
+    r = row._mapping
+    telefone=r['telefone']
+    digitos=''.join(c for c in telefone if c.isdigit())
+    telefone = digitos[-4:]
+    return telefone
 def LGPD(row):
     r = row._mapping
     id= r['id']
-    nome = r['nome']
-    cpf= r['cpf']
-    email= r['email']
-    telefone = r['telefone']
     data_nascimento = r['data_nascimento']
     created_on = r['created_on']
     updated_on = r['updated_on']
-
-    nomeS = nome.split()
-    nomeS[0] = nomeS[0][0] + '*' * (len(nomeS[0]) - 1)
-    nome = ' '.join(nomeS)
-
-    cpf = cpf[:3] + '.***.***-**'
-
-    local, dominio = email.split('@', 1)
-    email = local[0] + '*' * (len(local) - 1) + '@' + dominio
-
-    digitos = ''.join(c for c in telefone if c.isdigit())
-    telefone = digitos[-4:]
-
-    return (id, nome, cpf, email, telefone, data_nascimento, created_on, updated_on)
+    return (id, anon_nome(row), anon_cpf(row), anon_email(row), anon_telefone(row), data_nascimento, created_on, updated_on)
+def LGPD_ALL(row):
+    return row
 
 @medir_tempo
 def gerar_por_ano(users):
@@ -74,14 +81,26 @@ def gerar_por_ano(users):
             writer.writerow(['id', 'nome', 'cpf', 'email', 'telefone', 'data_nascimento', 'created_on', 'updated_on'])
             writer.writerows(registros)
         print(f"'{nome_arquivo}' gerado com {len(registros)} usuários.")
-all_users = []
+@medir_tempo
+def gerar_todos(users):
+        nome_arquivo = f'todos.csv'
+        with open(nome_arquivo, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'nome', 'cpf', 'email', 'telefone', 'data_nascimento', 'created_on', 'updated_on'])
+            writer.writerows(users)
+        print(f"'{nome_arquivo}' gerado com {len(users)} usuários.")
+all_users_anon = []
 with engine.connect() as conn:
     result = conn.execute(text("SELECT * FROM usuarios;"))
     for row in result:
-        all_users.append(LGPD(row))
-gerar_por_ano(all_users)
-
-
+        all_users_anon.append(LGPD(row))
+gerar_por_ano(all_users_anon)
+all_users = []
+with engine.connect() as conn:
+    result = conn.execute(text("SELECT * from usuarios;"))
+    for row in result:
+        all_users.append(LGPD_ALL(row))
+gerar_todos(all_users)
 users=[]
 with engine.connect() as conn:
     result = conn.execute(text("SELECT * FROM usuarios LIMIT 5;"))
