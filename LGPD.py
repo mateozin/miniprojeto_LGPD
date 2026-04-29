@@ -1,10 +1,15 @@
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Date, DateTime, insert, text
 from datetime import datetime
 
+import os
 import time
 import csv
 from functools import wraps
 from collections import defaultdict
+import logging
+
+DIR=os.path.dirname(os.path.abspath(__file__))
+logging.basicConfig(filename=os.path.join(DIR, 'decorador_tempo.log'), level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def medir_tempo(func):
     """Decorator que mede o tempo de execução de uma função."""
@@ -14,7 +19,9 @@ def medir_tempo(func):
         resultado = func(*args, **kwargs)
         fim = time.perf_counter()     # tempo final
         duracao = fim - inicio
-        print(f"⏱ Função '{func.__name__}' executada em {duracao:.6f} segundos.")
+        msg=f"⏱ Função '{func.__name__}' executada em {duracao:.6f} segundos."
+        print(msg)
+        logging.info(msg)
         return resultado
     return wrapper
 
@@ -57,6 +64,8 @@ def anon_telefone(row):
     digitos=''.join(c for c in telefone if c.isdigit())
     telefone = digitos[-4:]
     return telefone
+
+@medir_tempo
 def LGPD(row):
     r = row._mapping
     id= r['id']
@@ -75,20 +84,24 @@ def gerar_por_ano(users):
         por_ano[ano].append(u)
 
     for ano, registros in por_ano.items():
-        nome_arquivo = f'{ano}.csv'
+        nome_arquivo = os.path.join(DIR, f'{ano}.csv')
         with open(nome_arquivo, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['id', 'nome', 'cpf', 'email', 'telefone', 'data_nascimento', 'created_on', 'updated_on'])
             writer.writerows(registros)
-        print(f"'{nome_arquivo}' gerado com {len(registros)} usuários.")
+        msg=f"'{os.path.basename(nome_arquivo)}' gerado com {len(registros)} usuários."
+        print(msg)
+        logging.info(msg)
 @medir_tempo
 def gerar_todos(users):
-        nome_arquivo = f'todos.csv'
+        nome_arquivo = os.path.join(DIR, f'todos.csv')
         with open(nome_arquivo, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['id', 'nome', 'cpf', 'email', 'telefone', 'data_nascimento', 'created_on', 'updated_on'])
             writer.writerows(users)
-        print(f"'{nome_arquivo}' gerado com {len(users)} usuários.")
+        msg=f"'{os.path.basename(nome_arquivo)}' gerado com {len(users)} usuários."
+        print(msg)
+        logging.info(msg)
 all_users_anon = []
 with engine.connect() as conn:
     result = conn.execute(text("SELECT * FROM usuarios;"))
